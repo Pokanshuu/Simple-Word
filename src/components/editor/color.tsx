@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { Check, ChevronDown, Pipette } from "lucide-react";
 import { cn } from "../../lib/cn";
+import { DEFAULT_PALETTE } from "../../lib/palette";
 import { Dropdown, DropdownItem, DropdownLabel, DropdownSeparator } from "../ui/dropdown";
 
 export function ColorTrigger({ color }: { color?: string }) {
@@ -10,7 +11,7 @@ export function ColorTrigger({ color }: { color?: string }) {
       title="文字颜色"
       aria-label="文字颜色"
       onMouseDown={(e) => e.preventDefault()}
-      className="inline-flex h-7 items-center gap-1 rounded px-1.5 text-sm font-semibold text-ink-muted hover:bg-black/5 dark:hover:bg-white/5"
+      className="inline-flex h-7 items-center gap-1 rounded-[3px] px-1.5 text-sm text-ink-muted hover:bg-black/5 hover:text-ink dark:hover:bg-white/5"
     >
       <span className="font-serif text-[15px] leading-none">A</span>
       <span
@@ -33,30 +34,30 @@ export function ColorPanel({
   onPick: (color: string) => void;
   extra?: ReactNode;
 }) {
+  const colors = palette.length ? palette : DEFAULT_PALETTE;
   return (
-    <div
-      className="w-[168px] p-2"
-      onMouseDown={(e) => e.stopPropagation()}
-    >
-      <div className="grid grid-cols-8 gap-1.5">
-        {palette.map((c) => (
+    <div className="w-[176px] p-2" onMouseDown={(e) => e.stopPropagation()}>
+      <div className="grid grid-cols-8 gap-1">
+        {colors.map((color) => (
           <button
-            key={c}
+            key={color}
             type="button"
-            title={c}
+            title={color}
+            aria-label={color}
             onMouseDown={(e) => e.preventDefault()}
-            onClick={() => onPick(c)}
+            onClick={() => onPick(color)}
             className={cn(
               "h-4 w-4 rounded-full border border-line transition-transform hover:scale-110",
+              current?.toLowerCase() === color.toLowerCase() && "ring-1 ring-ink-faint ring-offset-1",
             )}
-            style={{ backgroundColor: c }}
+            style={{ backgroundColor: color }}
           />
         ))}
       </div>
       <div className="mt-2 flex items-center justify-between border-t border-line pt-2">
         <label
           title="自定义颜色"
-          className="inline-flex h-6 w-6 cursor-pointer items-center justify-center rounded text-ink-muted hover:bg-black/5 dark:hover:bg-white/5"
+          className="inline-flex h-6 w-6 cursor-pointer items-center justify-center rounded-[3px] text-ink-muted hover:bg-black/5 hover:text-ink dark:hover:bg-white/5"
         >
           <Pipette size={13} strokeWidth={2} />
           <input
@@ -66,7 +67,7 @@ export function ColorPanel({
             onChange={(e) => onPick(e.target.value)}
           />
         </label>
-        <span className="text-xs text-ink-faint">{current ?? "默认"}</span>
+        <span className="text-[10px] tabular-nums text-ink-faint">{current ?? "默认"}</span>
       </div>
       {extra}
     </div>
@@ -86,14 +87,7 @@ export function ColorDropdown({
   children: ReactNode;
 }) {
   return (
-    <Dropdown
-      trigger={children}
-      align="start"
-      onOpenChange={(open) => {
-        /* 保持简单 */
-        void open;
-      }}
-    >
+    <Dropdown trigger={children} align="start">
       <ColorPanel palette={palette} current={current} onPick={onPick} />
     </Dropdown>
   );
@@ -118,8 +112,8 @@ export function HeadingSelect({
   editor: import("@tiptap/react").Editor;
   className?: string;
 }) {
-  const activeHeading = HEADING_ITEMS.find(
-    (h) => (h.level === null ? editor.isActive("paragraph") : editor.isActive("heading", { level: h.level })),
+  const activeHeading = HEADING_ITEMS.find((h) =>
+    h.level === null ? editor.isActive("paragraph") : editor.isActive("heading", { level: h.level }),
   );
   const label = activeHeading?.label ?? "正文";
 
@@ -132,34 +126,35 @@ export function HeadingSelect({
           title="段落样式"
           onMouseDown={(e) => e.preventDefault()}
           className={cn(
-            "inline-flex h-7 items-center gap-0.5 rounded px-2 text-sm text-ink hover:bg-black/5 dark:hover:bg-white/5",
+            "inline-flex h-7 items-center gap-0.5 rounded-[3px] px-2 text-[13px] text-ink hover:bg-black/5 dark:hover:bg-white/5",
             className,
           )}
         >
-          <span className={cn("truncate", activeHeading?.level && "font-serif font-semibold")}>
+          <span className={cn("w-[42px] truncate text-left", activeHeading?.level && "font-serif font-semibold")}>
             {label}
           </span>
-          <ChevronDown size={13} strokeWidth={2} className="shrink-0 text-ink-faint" />
+          <ChevronDown size={12} strokeWidth={2} className="shrink-0 text-ink-faint" />
         </button>
       }
     >
       <DropdownLabel>段落样式</DropdownLabel>
       <DropdownSeparator />
-      {HEADING_ITEMS.map((h) => (
-        <DropdownItem
-          key={h.level ?? "p"}
-          active={activeHeading?.level === h.level && (h.level !== null || editor.isActive("paragraph"))}
-          onClick={() => {
-            if (h.level === null) editor.chain().focus().setParagraph().run();
-            else editor.chain().focus().toggleHeading({ level: h.level }).run();
-          }}
-        >
-          <span className={h.level ? "font-serif font-semibold" : ""}>{h.label}</span>
-          {activeHeading?.level === h.level && (h.level !== null || editor.isActive("paragraph")) ? (
-            <Check size={14} strokeWidth={2} className="ml-auto text-ink-muted" />
-          ) : null}
-        </DropdownItem>
-      ))}
+      {HEADING_ITEMS.map((h) => {
+        const active = activeHeading?.level === h.level && (h.level !== null || editor.isActive("paragraph"));
+        return (
+          <DropdownItem
+            key={h.level ?? "p"}
+            active={active}
+            suffix={active ? <Check size={13} strokeWidth={2} /> : null}
+            onClick={() => {
+              if (h.level === null) editor.chain().focus().setParagraph().run();
+              else editor.chain().focus().setHeading({ level: h.level }).run();
+            }}
+          >
+            <span className={h.level ? "font-serif font-semibold" : ""}>{h.label}</span>
+          </DropdownItem>
+        );
+      })}
     </Dropdown>
   );
 }

@@ -134,7 +134,7 @@ export function DialogHost() {
   const tripleDialog = triple
     ? createPortal(
         <div
-          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/15 p-4 dark:bg-black/40"
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/10 p-4 dark:bg-black/45"
           onMouseDown={(e) => {
             if (e.target === e.currentTarget) triple.onResult("cancel");
           }}
@@ -142,13 +142,13 @@ export function DialogHost() {
           <div
             role="dialog"
             aria-modal
-            className="w-full max-w-[380px] rounded-lg border border-line bg-paper/70 p-4 shadow-none ring-1 ring-black/5 backdrop-blur-lg dark:bg-paper/80"
+            className="w-full max-w-[380px] rounded-[4px] border border-line bg-paper p-5 dark:bg-[#242321]"
           >
-            <h2 className="font-serif text-lg font-bold text-ink">{triple.title}</h2>
+            <h2 className="font-serif text-[17px] font-semibold text-ink">{triple.title}</h2>
             {triple.description ? (
-              <p className="mt-2 text-sm leading-relaxed text-ink-muted">{triple.description}</p>
+              <p className="mt-2 text-[13px] leading-relaxed text-ink-muted">{triple.description}</p>
             ) : null}
-            <div className="mt-4 flex justify-end gap-2">
+            <div className="mt-5 flex justify-end gap-2">
               <Button onClick={() => triple.onResult("cancel")}>取消</Button>
               <Button variant="danger" onClick={() => triple.onResult("discard")}>
                 {triple.neutralText}
@@ -167,7 +167,7 @@ export function DialogHost() {
 
   const dialogEl = createPortal(
     <div
-      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/15 p-4 dark:bg-black/40"
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/10 p-4 dark:bg-black/45"
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) dialog.onResult(false);
       }}
@@ -175,13 +175,13 @@ export function DialogHost() {
       <div
         role="dialog"
         aria-modal
-        className="w-full max-w-[380px] rounded-lg border border-line bg-paper/70 p-4 shadow-none ring-1 ring-black/5 backdrop-blur-lg dark:bg-paper/80"
+        className="w-full max-w-[380px] rounded-[4px] border border-line bg-paper p-5 dark:bg-[#242321]"
       >
-        <h2 className="font-serif text-lg font-bold text-ink">{dialog.title}</h2>
+        <h2 className="font-serif text-[17px] font-semibold text-ink">{dialog.title}</h2>
         {dialog.description ? (
-          <p className="mt-2 text-sm leading-relaxed text-ink-muted">{dialog.description}</p>
+          <p className="mt-2 text-[13px] leading-relaxed text-ink-muted">{dialog.description}</p>
         ) : null}
-        <div className="mt-4 flex justify-end gap-2">
+        <div className="mt-5 flex justify-end gap-2">
           {dialog.cancelText !== "" ? (
             <Button onClick={() => dialog.onResult(false)}>{dialog.cancelText ?? "取消"}</Button>
           ) : null}
@@ -235,7 +235,7 @@ export function Dialog({
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/15 p-4 dark:bg-black/40"
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/10 p-4 dark:bg-black/45"
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
@@ -244,11 +244,11 @@ export function Dialog({
         role="dialog"
         aria-modal
         style={{ width }}
-        className="max-w-[calc(100vw-32px)] rounded-lg border border-line bg-paper/70 p-4 shadow-none ring-1 ring-black/5 backdrop-blur-lg dark:bg-paper/80"
+        className="max-w-[calc(100vw-32px)] rounded-[4px] border border-line bg-paper p-5 dark:bg-[#242321]"
       >
-        <h2 className="font-serif text-lg font-bold text-ink">{title}</h2>
+        <h2 className="font-serif text-[17px] font-semibold text-ink">{title}</h2>
         <div className="mt-3">{children}</div>
-        {footer ? <div className="mt-4 flex justify-end gap-2">{footer}</div> : null}
+        {footer ? <div className="mt-5 flex justify-end gap-2">{footer}</div> : null}
       </div>
     </div>,
     document.getElementById("overlay-root") ?? document.body,

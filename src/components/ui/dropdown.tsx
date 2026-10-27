@@ -51,12 +51,13 @@ export function Dropdown({
   useLayoutEffect(() => {
     if (!open || !anchorRef.current) return;
     const rect = anchorRef.current.getBoundingClientRect();
-    const menuH = 320; // 估计值，溢出时再裁剪
-    const left = align === "start" ? rect.left : rect.right - menuW;
-    const clampedLeft = Math.max(8, Math.min(left, window.innerWidth - Math.max(menuW, 160) - 8));
-    let top = rect.bottom + 4;
+    const menuH = 340;
+    const width = menuW || 180;
+    const left = align === "start" ? rect.left : rect.right - width;
+    const clampedLeft = Math.max(8, Math.min(left, window.innerWidth - width - 8));
+    let top = rect.bottom + 5;
     if (top + menuH > window.innerHeight - 8) {
-      top = Math.max(8, rect.top - menuH - 4);
+      top = Math.max(8, rect.top - menuH - 5);
     }
     setPosition({ top, left: clampedLeft });
   }, [open, align, menuW]);
@@ -84,7 +85,9 @@ export function Dropdown({
   return (
     <div ref={anchorRef} className={cn("relative inline-flex", className)}>
       <div onClick={() => setOpenWrapped(!open)}>{trigger}</div>
-      <Ctx.Provider value={{ open, setOpen: setOpenWrapped, align, position, anchor: anchorRef.current }}>
+      <Ctx.Provider
+        value={{ open, setOpen: setOpenWrapped, align, position, anchor: anchorRef.current }}
+      >
         <DropdownContent onMeasure={setMenuW}>{children}</DropdownContent>
       </Ctx.Provider>
     </div>
@@ -102,9 +105,7 @@ function DropdownContent({
   const ref = useRef<HTMLDivElement>(null);
 
   useLayoutEffect(() => {
-    if (ctx?.open && ref.current) {
-      onMeasure(ref.current.offsetWidth);
-    }
+    if (ctx?.open && ref.current) onMeasure(ref.current.offsetWidth);
   }, [ctx?.open, children, onMeasure]);
 
   if (!ctx?.open) return null;
@@ -112,8 +113,13 @@ function DropdownContent({
   return createPortal(
     <div
       ref={ref}
-      className="pointer-events-auto absolute z-[120] min-w-[160px] rounded-md border border-line bg-paper/60 p-1 shadow-none ring-1 ring-black/5 backdrop-blur-lg dark:bg-paper/70"
-      style={{ top: ctx.position.top, left: ctx.position.left, position: "fixed" }}
+      className="pointer-events-auto absolute z-[120] max-h-[calc(100vh-16px)] min-w-[176px] overflow-y-auto rounded-[4px] border border-line bg-paper p-1"
+      style={{
+        top: ctx.position.top,
+        left: ctx.position.left,
+        position: "fixed",
+        boxShadow: "0 10px 32px rgba(35, 30, 24, 0.10)",
+      }}
       onMouseDown={(e) => e.stopPropagation()}
     >
       {children}
@@ -128,6 +134,8 @@ export function DropdownItem({
   icon,
   danger,
   active,
+  shortcut,
+  suffix,
   className,
 }: {
   children: ReactNode;
@@ -135,6 +143,8 @@ export function DropdownItem({
   icon?: ReactNode;
   danger?: boolean;
   active?: boolean;
+  shortcut?: string;
+  suffix?: ReactNode;
   className?: string;
 }) {
   const ctx = useContext(Ctx);
@@ -147,14 +157,18 @@ export function DropdownItem({
         ctx?.setOpen(false);
       }}
       className={cn(
-        "flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-sm text-ink hover:bg-black/5 dark:hover:bg-white/5",
-        danger && "text-error hover:bg-error-light dark:hover:bg-red-950/30",
-        active && "bg-paper-card",
+        "flex w-full items-center gap-2 rounded-[3px] px-2 py-1.5 text-left text-[13px] text-ink hover:bg-paper-alt",
+        danger && "text-error hover:bg-error-light",
+        active && "bg-paper-alt",
         className,
       )}
     >
-      {icon ? <span className="text-ink-muted">{icon}</span> : null}
+      {icon ? <span className="shrink-0 text-ink-muted">{icon}</span> : null}
       <span className="min-w-0 flex-1 truncate">{children}</span>
+      {shortcut ? (
+        <span className="shrink-0 text-[10px] tabular-nums text-ink-faint">{shortcut}</span>
+      ) : null}
+      {suffix ? <span className="shrink-0 text-ink-muted">{suffix}</span> : null}
     </button>
   );
 }
@@ -164,5 +178,5 @@ export function DropdownSeparator() {
 }
 
 export function DropdownLabel({ children }: { children: ReactNode }) {
-  return <div className="px-2 py-1 text-xs text-ink-faint">{children}</div>;
+  return <div className="px-2 py-1 text-[10px] tracking-wide text-ink-faint">{children}</div>;
 }

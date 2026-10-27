@@ -3,7 +3,7 @@ import type { PageSettings } from "../../lib/types";
 import { Dialog } from "../ui/dialog";
 import { Button } from "../ui/button";
 
-function Field({
+function NumberField({
   label,
   value,
   onChange,
@@ -13,7 +13,7 @@ function Field({
   onChange: (v: number) => void;
 }) {
   return (
-    <label className="flex items-center justify-between gap-3 text-sm text-ink-muted">
+    <label className="flex items-center justify-between gap-2 text-[12px] text-ink-muted">
       <span className="shrink-0">{label}</span>
       <span className="flex items-center gap-1">
         <input
@@ -25,13 +25,19 @@ function Field({
             const v = Number(e.target.value);
             if (!Number.isNaN(v)) onChange(v);
           }}
-          className="h-8 w-20 rounded border border-line bg-paper-card px-2 text-right text-sm text-ink focus:border-line-hover focus:outline-none"
+          className="h-8 w-16 rounded-[3px] border border-line bg-paper-alt px-2 text-right text-[12px] tabular-nums text-ink focus:border-line-hover focus:outline-none"
         />
-        <span className="text-xs text-ink-faint">pt</span>
+        <span className="text-[11px] text-ink-faint">pt</span>
       </span>
     </label>
   );
 }
+
+const MARGIN_PRESETS = [
+  { label: "标准", value: 72 },
+  { label: "窄", value: 54 },
+  { label: "宽", value: 96 },
+];
 
 export function PageSettingsDialog({
   open,
@@ -47,11 +53,19 @@ export function PageSettingsDialog({
   const [draft, setDraft] = useState<PageSettings>(page);
 
   useEffect(() => {
-    if (open) setDraft(page);
+    if (open) setDraft({ ...page, margin: { ...page.margin } });
   }, [open, page]);
 
   const apply = () => {
-    onApply(draft);
+    onApply({
+      ...draft,
+      margin: {
+        top: Math.min(240, Math.max(12, draft.margin.top)),
+        right: Math.min(240, Math.max(12, draft.margin.right)),
+        bottom: Math.min(240, Math.max(12, draft.margin.bottom)),
+        left: Math.min(240, Math.max(12, draft.margin.left)),
+      },
+    });
     onClose();
   };
 
@@ -60,29 +74,35 @@ export function PageSettingsDialog({
       open={open}
       onClose={onClose}
       title="页面设置"
-      width={360}
+      width={380}
       footer={
         <>
-          <Button onClick={onClose}>取消</Button>
-          <Button onClick={apply}>应用</Button>
+          <Button variant="ghost" onClick={onClose}>
+            取消
+          </Button>
+          <Button variant="primary" onClick={apply}>
+            应用
+          </Button>
         </>
       }
     >
-      <div className="space-y-4">
+      <div className="space-y-5">
         <div className="grid grid-cols-2 gap-3">
-          <label className="text-sm text-ink-muted">
-            <span className="mb-1 block text-xs">纸张大小</span>
+          <label className="block text-[12px] text-ink-muted">
+            <span className="mb-1.5 block text-[11px] text-ink-faint">纸张</span>
             <select
               value={draft.size}
-              onChange={(e) => setDraft((d) => ({ ...d, size: e.target.value as PageSettings["size"] }))}
-              className="h-9 w-full rounded border border-line bg-paper-card px-2.5 text-sm text-ink focus:border-line-hover focus:outline-none"
+              onChange={(e) =>
+                setDraft((d) => ({ ...d, size: e.target.value as PageSettings["size"] }))
+              }
+              className="h-9 w-full rounded-[3px] border border-line bg-paper-alt px-2.5 text-[13px] text-ink focus:border-line-hover focus:outline-none"
             >
-              <option value="A4">A4 (210×297mm)</option>
-              <option value="Letter">Letter (8.5×11in)</option>
+              <option value="A4">A4 · 210×297mm</option>
+              <option value="Letter">Letter · 8.5×11in</option>
             </select>
           </label>
-          <label className="text-sm text-ink-muted">
-            <span className="mb-1 block text-xs">方向</span>
+          <label className="block text-[12px] text-ink-muted">
+            <span className="mb-1.5 block text-[11px] text-ink-faint">方向</span>
             <select
               value={draft.orientation}
               onChange={(e) =>
@@ -91,35 +111,67 @@ export function PageSettingsDialog({
                   orientation: e.target.value as PageSettings["orientation"],
                 }))
               }
-              className="h-9 w-full rounded border border-line bg-paper-card px-2.5 text-sm text-ink focus:border-line-hover focus:outline-none"
+              className="h-9 w-full rounded-[3px] border border-line bg-paper-alt px-2.5 text-[13px] text-ink focus:border-line-hover focus:outline-none"
             >
               <option value="portrait">纵向</option>
               <option value="landscape">横向</option>
             </select>
           </label>
         </div>
-        <div className="space-y-2.5 rounded-md border border-line bg-paper-card p-3">
-          <Field
-            label="上边距"
-            value={draft.margin.top}
-            onChange={(v) => setDraft((d) => ({ ...d, margin: { ...d.margin, top: v } }))}
-          />
-          <Field
-            label="下边距"
-            value={draft.margin.bottom}
-            onChange={(v) => setDraft((d) => ({ ...d, margin: { ...d.margin, bottom: v } }))}
-          />
-          <Field
-            label="左边距"
-            value={draft.margin.left}
-            onChange={(v) => setDraft((d) => ({ ...d, margin: { ...d.margin, left: v } }))}
-          />
-          <Field
-            label="右边距"
-            value={draft.margin.right}
-            onChange={(v) => setDraft((d) => ({ ...d, margin: { ...d.margin, right: v } }))}
-          />
+
+        <div>
+          <div className="mb-2 flex items-center justify-between">
+            <span className="text-[11px] text-ink-faint">页边距</span>
+            <span className="flex items-center gap-1">
+              {MARGIN_PRESETS.map((preset) => (
+                <button
+                  key={preset.label}
+                  type="button"
+                  className="rounded-[3px] px-1.5 py-0.5 text-[11px] text-ink-muted hover:bg-black/5 hover:text-ink dark:hover:bg-white/5"
+                  onClick={() =>
+                    setDraft((d) => ({
+                      ...d,
+                      margin: {
+                        top: preset.value,
+                        right: preset.value,
+                        bottom: preset.value,
+                        left: preset.value,
+                      },
+                    }))
+                  }
+                >
+                  {preset.label}
+                </button>
+              ))}
+            </span>
+          </div>
+          <div className="grid grid-cols-2 gap-x-5 gap-y-2 border-t border-line pt-3">
+            <NumberField
+              label="上"
+              value={draft.margin.top}
+              onChange={(v) => setDraft((d) => ({ ...d, margin: { ...d.margin, top: v } }))}
+            />
+            <NumberField
+              label="下"
+              value={draft.margin.bottom}
+              onChange={(v) => setDraft((d) => ({ ...d, margin: { ...d.margin, bottom: v } }))}
+            />
+            <NumberField
+              label="左"
+              value={draft.margin.left}
+              onChange={(v) => setDraft((d) => ({ ...d, margin: { ...d.margin, left: v } }))}
+            />
+            <NumberField
+              label="右"
+              value={draft.margin.right}
+              onChange={(v) => setDraft((d) => ({ ...d, margin: { ...d.margin, right: v } }))}
+            />
+          </div>
         </div>
+
+        <p className="text-[11px] leading-relaxed text-ink-faint">
+          A4 纵向的正文宽度约 650px；边距过小会让打印内容贴近纸张边缘。
+        </p>
       </div>
     </Dialog>
   );

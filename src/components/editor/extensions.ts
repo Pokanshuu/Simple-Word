@@ -1,5 +1,5 @@
 import { Extension, type Range, type AnyExtension } from "@tiptap/core";
-import Suggestion, { type SuggestionKeyDownProps, type SuggestionProps } from "@tiptap/suggestion";
+import Suggestion, { type SuggestionProps } from "@tiptap/suggestion";
 import { ReactRenderer, type Editor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import { TextAlign } from "@tiptap/extension-text-align";
@@ -29,7 +29,8 @@ import {
   Table as TableIcon,
   type LucideIcon,
 } from "lucide-react";
-import { SlashList } from "./slashMenu";
+import { SlashList, type SlashListRef } from "./slashMenu";
+import { safeHref } from "../../lib/sanitize";
 
 export interface SlashItem {
   title: string;
@@ -159,57 +160,80 @@ function createSlashExtension(items: SlashItem[]) {
           items: ({ query }) => {
             const q = query.toLowerCase();
             if (!q) return items;
-            return items.filter(
-              (item) =>
-                item.title.toLowerCase().includes(q) ||
-                (item.description ?? "").toLowerCase().includes(q),
-            );
+            // 前缀命中优先。输入「表」时，"无序列表/有序列表"的标题里也含"表"，
+            // 只按 includes 过滤仍会让键盘 Enter 选中"无序列表"；用户想要的是"表格"。
+            const startsWith = items.filter((item) => item.title.toLowerCase().startsWith(q));
+            if (startsWith.length) return startsWith;
+            const byTitle = items.filter((item) => item.title.toLowerCase().includes(q));
+            if (byTitle.length) return byTitle;
+            return items.filter((item) => (item.description ?? "").toLowerCase().includes(q));
           },
           command: ({ editor: e, range, props }) => {
             props.command({ editor: e, range });
           },
           render: () => {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            let component: { onKeyDown: (p: SuggestionKeyDownProps) => boolean } | null = null;
             let renderer: ReactRenderer | null = null;
             let popup: HTMLElement | null = null;
+            let latest: SuggestionProps<SlashItem> | null = null;
 
-            const position = (el: HTMLElement, props: SuggestionProps<SlashItem>) => {
-              const rect = props.clientRect?.();
-              if (!rect || !el) return;
-              el.style.left = `${rect.left}px`;
-              const w = el.offsetWidth || 300;
-              if (rect.left + w > window.innerWidth - 8) {
-                el.style.left = `${Math.max(8, window.innerWidth - w - 8)}px`;
-              }
-              el.style.top = `${rect.bottom + 6}px`;
+            // 滚动 / 改窗口大小后重新贴住光标（旧版弹出后就与光标脱节）
+            const position = () => {
+              const rect = latest?.clientRect?.();
+              if (!rect || !popup) return;
+              const width = popup.offsetWidth || 280;
+              const height = popup.offsetHeight || 320;
+              const left = Math.min(
+                Math.max(8, rect.left),
+                Math.max(8, window.innerWidth - width - 8),
+              );
+              const below = rect.bottom + 6;
+              const top =
+                below + height > window.innerHeight - 8
+                  ? Math.max(8, rect.top - height - 6)
+                  : below;
+              popup.style.left = `${left}px`;
+              popup.style.top = `${top}px`;
             };
+
+            const onMove = () => position();
+            window.addEventListener("scroll", onMove, true);
+            window.addEventListener("resize", onMove);
 
             return {
               onStart: (props) => {
+                latest = props;
                 renderer = new ReactRenderer(SlashList, {
                   props,
                   editor: props.editor,
                 });
-                component = renderer.ref as typeof component;
+                // ⚠️ 不能在这里读 renderer.ref：React 的 ref 回调是异步落下的，
+                // 此时通常还是 null。旧版把 null 存进 component，导致点击能插入、
+                // 键盘 Enter 却永远是换行。改为在 onKeyDown 时现读。
                 popup = document.createElement("div");
+                popup.className = "sw-slash-popup";
                 popup.style.position = "fixed";
                 popup.style.zIndex = "999";
                 popup.appendChild(renderer.element);
                 (document.getElementById("overlay-root") ?? document.body).appendChild(popup);
-                position(popup, props);
+                position();
               },
               onUpdate: (props) => {
+                latest = props;
                 renderer?.updateProps(props);
-                if (popup) position(popup, props);
+                position();
               },
-              onKeyDown: (props) => component?.onKeyDown(props) ?? false,
+              onKeyDown: (props) => {
+                const list = renderer?.ref as SlashListRef | null;
+                return list?.onKeyDown(props) ?? false;
+              },
               onExit: () => {
+                window.removeEventListener("scroll", onMove, true);
+                window.removeEventListener("resize", onMove);
                 renderer?.destroy();
                 popup?.remove();
                 renderer = null;
                 popup = null;
-                component = null;
+                latest = null;
               },
             };
           },
@@ -218,6 +242,40 @@ function createSlashExtension(items: SlashItem[]) {
     },
   });
 }
+
+/**
+ * 带宽高的图片扩展。
+ *
+ * 旧版 `setImage({width,height})` 传了也没用（默认 Image 只有 src/alt/title），
+ * 所以 docx 导出永远按 300×200 拉伸。这里把宽高真正写进节点与 HTML。
+ * `inline: true` 让图片可以待在段落里（Word 的默认行为），也让旧 .sowd
+ * 的 block 图片经 `migrateBlockImages()` 迁移后有合法结构。
+ */
+const SizedImage = Image.extend({
+  addAttributes() {
+    return {
+      ...(this.parent?.() ?? {}),
+      width: {
+        default: null,
+        parseHTML: (element) => {
+          const n = Number(element.getAttribute("width"));
+          return Number.isFinite(n) && n > 0 ? Math.round(n) : null;
+        },
+        renderHTML: (attributes) =>
+          attributes.width ? { width: Math.round(Number(attributes.width)) } : {},
+      },
+      height: {
+        default: null,
+        parseHTML: (element) => {
+          const n = Number(element.getAttribute("height"));
+          return Number.isFinite(n) && n > 0 ? Math.round(n) : null;
+        },
+        renderHTML: (attributes) =>
+          attributes.height ? { height: Math.round(Number(attributes.height)) } : {},
+      },
+    };
+  },
+});
 
 export function buildExtensions(opts: {
   placeholder?: string;
@@ -232,6 +290,9 @@ export function buildExtensions(opts: {
         autolink: true,
         defaultProtocol: "https",
         HTMLAttributes: { rel: "noopener noreferrer", target: "_blank" },
+        // 输入/粘贴的链接也走白名单，不再只依赖工具栏那一个入口
+        isAllowedUri: (url: string) => Boolean(safeHref(url)),
+        validate: (url: string) => Boolean(safeHref(url)),
       },
       codeBlock: {},
     }),
@@ -245,7 +306,7 @@ export function buildExtensions(opts: {
     TableCell,
     TaskList,
     TaskItem.configure({ nested: true }),
-    Image.configure({ inline: false }),
+    SizedImage.configure({ inline: true, allowBase64: true }),
     TextStyle,
     Color,
     CharacterCount,

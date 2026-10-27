@@ -1,6 +1,15 @@
 import type { Editor } from "@tiptap/react";
+import { useEditorState } from "@tiptap/react";
 import { BubbleMenu } from "@tiptap/react/menus";
-import { Rows3, Table as TableIcon, Trash2, ImagePlus, ImageOff } from "lucide-react";
+import {
+  Columns3,
+  ImageOff,
+  ImagePlus,
+  Rows3,
+  TableCellsMerge,
+  TableCellsSplit,
+  Trash2,
+} from "lucide-react";
 import { FormatToolbar } from "./formatToolbar";
 import { ToolButton, ToolDivider } from "./toolbar";
 
@@ -18,14 +27,25 @@ function TableOps({ editor }: { editor: Editor }) {
         onClick={() => editor.chain().focus().addRowAfter().run()}
       />
       <ToolButton
-        icon={TableIcon}
+        icon={Columns3}
         label="左侧插入列"
         onClick={() => editor.chain().focus().addColumnBefore().run()}
       />
       <ToolButton
-        icon={TableIcon}
+        icon={Columns3}
         label="右侧插入列"
         onClick={() => editor.chain().focus().addColumnAfter().run()}
+      />
+      <ToolDivider />
+      <ToolButton
+        icon={TableCellsMerge}
+        label="合并单元格"
+        onClick={() => editor.chain().focus().mergeCells().run()}
+      />
+      <ToolButton
+        icon={TableCellsSplit}
+        label="拆分单元格"
+        onClick={() => editor.chain().focus().splitCell().run()}
       />
       <ToolDivider />
       <ToolButton
@@ -54,30 +74,51 @@ export function EditorBubbleMenu({
   editor,
   palette,
   onReplaceImage,
+  onWarn,
 }: {
   editor: Editor;
   palette: string[];
   onReplaceImage: () => void;
+  onWarn: (message: string) => void;
 }) {
+  const ctx = useEditorState({
+    editor,
+    selector: ({ editor: e }) => ({
+      table: e.isActive("table"),
+      image: e.isActive("image"),
+    }),
+  });
+
   return (
     <BubbleMenu
       editor={editor}
       appendTo={() => document.getElementById("overlay-root") ?? document.body}
       options={{ placement: "top", offset: 8 }}
+      updateDelay={0}
       shouldShow={({ editor: e }) => {
         if (e.isActive("table") || e.isActive("image")) return true;
         const { from, to } = e.state.selection;
         return from !== to && !e.isActive("codeBlock");
       }}
-      updateDelay={0}
     >
-      <div className="flex items-center gap-0.5 rounded-md border border-line bg-paper/60 p-1 shadow-none ring-1 ring-black/5 backdrop-blur-lg dark:bg-paper/70">
-        {editor.isActive("table") ? (
+      <div
+        className="flex items-center gap-0.5 rounded-[4px] border border-line bg-paper p-1"
+        style={{ boxShadow: "0 8px 26px rgba(35, 30, 24, 0.10)" }}
+        role="toolbar"
+        aria-label="选词菜单"
+      >
+        {ctx.table ? (
           <TableOps editor={editor} />
-        ) : editor.isActive("image") ? (
+        ) : ctx.image ? (
           <ImageOps editor={editor} onReplace={onReplaceImage} />
         ) : (
-          <FormatToolbar editor={editor} palette={palette} compact />
+          <FormatToolbar
+            editor={editor}
+            palette={palette}
+            compact
+            shortcut={false}
+            onWarn={onWarn}
+          />
         )}
       </div>
     </BubbleMenu>

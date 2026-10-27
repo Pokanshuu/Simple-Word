@@ -1,4 +1,4 @@
-import { forwardRef, useEffect, useImperativeHandle, useState } from "react";
+import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
 import type { SuggestionKeyDownProps, SuggestionProps } from "@tiptap/suggestion";
 import { cn } from "../../lib/cn";
 import type { SlashItem } from "./extensions";
@@ -10,6 +10,7 @@ export interface SlashListRef {
 export const SlashList = forwardRef<SlashListRef, SuggestionProps<SlashItem>>(
   function SlashList(props, ref) {
     const [selected, setSelected] = useState(0);
+    const listRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
       setSelected(0);
@@ -17,6 +18,8 @@ export const SlashList = forwardRef<SlashListRef, SuggestionProps<SlashItem>>(
 
     useImperativeHandle(ref, () => ({
       onKeyDown: ({ event }: SuggestionKeyDownProps) => {
+        // items 为空时 (s+1) % 0 是 NaN —— 旧版方向键会把 selected 变成 NaN
+        if (!props.items.length) return false;
         if (event.key === "ArrowDown") {
           setSelected((s) => (s + 1) % props.items.length);
           return true;
@@ -31,48 +34,60 @@ export const SlashList = forwardRef<SlashListRef, SuggestionProps<SlashItem>>(
             props.command(item);
             return true;
           }
-          return false;
         }
         return false;
       },
     }));
 
+    useEffect(() => {
+      const node = listRef.current?.querySelector<HTMLElement>(`[data-index="${selected}"]`);
+      node?.scrollIntoView({ block: "nearest" });
+    }, [selected]);
+
     if (!props.items.length) {
       return (
-        <div className="min-w-[260px] rounded-md border border-line bg-paper/60 p-3 text-sm text-ink-muted shadow-none ring-1 ring-black/5 backdrop-blur-lg dark:bg-paper/70">
+        <div className="w-[260px] rounded-[4px] border border-line bg-paper px-3 py-3 text-xs text-ink-muted">
           没有匹配的插入项
         </div>
       );
     }
 
     return (
-      <div className="max-h-[360px] w-[280px] overflow-y-auto rounded-md border border-line bg-paper/60 p-1 shadow-none ring-1 ring-black/5 backdrop-blur-lg dark:bg-paper/70">
-        <div className="px-2 py-1 text-xs text-ink-faint">插入</div>
+      <div
+        ref={listRef}
+        className="max-h-[340px] w-[272px] overflow-y-auto rounded-[4px] border border-line bg-paper p-1"
+        style={{ boxShadow: "0 10px 32px rgba(35, 30, 24, 0.10)" }}
+      >
+        <div className="px-2 pb-1 pt-1.5 text-[11px] tracking-wide text-ink-faint">插入</div>
         {props.items.map((item, i) => {
           const Icon = item.icon;
           return (
             <button
               key={item.title}
               type="button"
+              data-index={i}
               onMouseEnter={() => setSelected(i)}
+              onMouseDown={(e) => e.preventDefault()}
               onClick={() => props.command(item)}
               className={cn(
-                "flex w-full items-center gap-2.5 rounded-sm px-2 py-1.5 text-left",
-                i === selected && "bg-paper-card",
+                "flex w-full items-center gap-2.5 rounded-[3px] px-2 py-1.5 text-left",
+                i === selected ? "bg-paper-alt" : "hover:bg-paper-alt/70",
               )}
             >
               <span
                 className={cn(
-                  "flex h-7 w-7 shrink-0 items-center justify-center rounded border border-line bg-paper-card",
+                  "flex h-6 w-6 shrink-0 items-center justify-center rounded-[3px] border border-line",
                   i === selected ? "text-ink" : "text-ink-muted",
                 )}
               >
-                <Icon size={15} strokeWidth={2} />
+                <Icon size={14} strokeWidth={2} />
               </span>
               <span className="min-w-0 flex-1">
-                <span className="block truncate text-sm text-ink">{item.title}</span>
+                <span className="block truncate text-[13px] text-ink">{item.title}</span>
                 {item.description ? (
-                  <span className="block truncate text-xs text-ink-faint">{item.description}</span>
+                  <span className="block truncate text-[11px] text-ink-faint">
+                    {item.description}
+                  </span>
                 ) : null}
               </span>
             </button>

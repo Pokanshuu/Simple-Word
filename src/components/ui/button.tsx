@@ -8,17 +8,18 @@ export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 
 const VARIANTS = {
   default:
-    "bg-paper-alt border border-line text-ink hover:border-line-hover hover:bg-[#F0EBE3] dark:hover:bg-paper-card",
-  primary:
-    "bg-paper-card/60 border border-line text-ink hover:border-line-hover hover:bg-paper-card/80",
-  ghost: "border border-transparent bg-transparent text-ink-muted hover:text-ink hover:bg-transparent dark:hover:bg-transparent",
-  danger: "border border-error text-error bg-transparent hover:border-error hover:bg-error-light dark:hover:bg-red-950/30",
-  ai: "border border-warning text-warning bg-transparent hover:border-warning hover:bg-warning/10",
+    "border border-line bg-transparent text-ink hover:border-line-hover hover:bg-paper-alt",
+  primary: "border border-ink bg-ink text-paper hover:opacity-90",
+  ghost:
+    "border border-transparent bg-transparent text-ink-muted hover:bg-black/5 hover:text-ink dark:hover:bg-white/5",
+  danger:
+    "border border-error/60 bg-transparent text-error hover:border-error hover:bg-error-light",
+  ai: "border border-warning/70 bg-transparent text-warning hover:border-warning hover:bg-warning/10",
 };
 
 const SIZES = {
-  sm: "h-8 px-2.5 text-xs rounded",
-  md: "h-9 px-3 text-sm rounded",
+  sm: "h-8 px-2.5 text-xs rounded-[3px]",
+  md: "h-9 px-3 text-[13px] rounded-[3px]",
 };
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button(
@@ -29,7 +30,12 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
     <button
       ref={ref}
       type={type ?? "button"}
-      className={cn("inline-flex items-center justify-center gap-1.5 font-medium select-none", VARIANTS[variant], SIZES[size], className)}
+      className={cn(
+        "inline-flex select-none items-center justify-center gap-1.5 font-medium transition-colors",
+        VARIANTS[variant],
+        SIZES[size],
+        className,
+      )}
       {...rest}
     >
       {children}
@@ -53,7 +59,7 @@ export const IconButton = forwardRef<HTMLButtonElement, IconButtonProps>(functio
       ref={ref}
       type="button"
       className={cn(
-        "inline-flex shrink-0 items-center justify-center rounded text-ink-muted hover:bg-black/5 hover:text-ink dark:hover:bg-white/10 dark:hover:text-dark-ink disabled:opacity-40",
+        "inline-flex shrink-0 items-center justify-center rounded-[3px] text-ink-muted hover:bg-black/5 hover:text-ink dark:hover:bg-white/5",
         size === "sm" ? "h-7 w-7" : "h-8 w-8",
         active && "bg-black/5 text-ink dark:bg-white/10 dark:text-[#E3DFD8]",
         className,

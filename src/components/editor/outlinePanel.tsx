@@ -17,7 +17,7 @@ export function OutlinePanel({
   editor: Editor | null;
   onClose: () => void;
 }) {
-  useEditorTick(editor);
+  const tick = useEditorTick(editor);
 
   const headings = useMemo<HeadingEntry[]>(() => {
     if (!editor) return [];
@@ -34,43 +34,68 @@ export function OutlinePanel({
     });
     return out;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [editor, editor?.state]);
+  }, [editor, tick]);
+
+  const activeIndex = useMemo(() => {
+    if (!editor || !headings.length) return -1;
+    const from = editor.state.selection.from;
+    let current = -1;
+    headings.forEach((heading, index) => {
+      if (heading.pos <= from) current = index;
+    });
+    return current;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editor, headings, tick]);
 
   return (
-    <aside className="no-print flex w-60 shrink-0 flex-col border-l border-line bg-paper-alt">
-      <div className="flex h-9 shrink-0 items-center justify-between border-b border-line px-3">
-        <span className="text-xs font-medium text-ink-muted">大纲</span>
+    <aside className="no-print flex w-[228px] shrink-0 flex-col border-l border-line bg-paper-alt">
+      <div className="flex h-10 shrink-0 items-center justify-between border-b border-line px-3">
+        <span className="text-[11px] tracking-wide text-ink-muted">
+          大纲
+          {headings.length ? (
+            <span className="ml-1.5 tabular-nums text-ink-faint">{headings.length}</span>
+          ) : null}
+        </span>
         <button
           type="button"
           title="收起面板"
-          className="inline-flex h-6 w-6 items-center justify-center rounded text-ink-muted hover:bg-black/5 dark:hover:bg-white/5"
+          aria-label="收起大纲"
+          className="inline-flex h-6 w-6 items-center justify-center rounded-[3px] text-ink-muted hover:bg-black/5 hover:text-ink dark:hover:bg-white/5"
           onClick={onClose}
         >
           <PanelRightClose size={14} strokeWidth={2} />
         </button>
       </div>
+
       <div className="min-h-0 flex-1 overflow-y-auto p-1.5">
         {headings.length === 0 ? (
-          <p className="px-2 py-3 text-xs leading-relaxed text-ink-faint">
+          <p className="px-2 py-3 text-[11px] leading-relaxed text-ink-faint">
             暂无标题。使用「标题 1 / 2 / 3」样式后，这里会显示文档大纲。
           </p>
         ) : (
-          headings.map((h) => (
+          headings.map((heading, index) => (
             <button
-              key={h.pos}
+              key={`${heading.pos}-${heading.text}`}
               type="button"
               onClick={() => {
-                editor?.chain().focus().setTextSelection(h.pos).scrollIntoView().run();
+                editor
+                  ?.chain()
+                  .focus()
+                  .setTextSelection(heading.pos + 1)
+                  .scrollIntoView()
+                  .run();
               }}
               className={cn(
-                "block w-full truncate rounded-sm px-2 py-1 text-left text-xs text-ink-muted hover:bg-black/5 hover:text-ink dark:hover:bg-white/5",
-                h.level === 1 && "mt-1 font-medium text-ink",
-                h.level === 2 && "pl-3.5",
-                h.level === 3 && "pl-5",
-                h.level >= 4 && "pl-[26px]",
+                "block w-full truncate rounded-[3px] px-2 py-1 text-left text-[12px] leading-5 text-ink-muted hover:bg-black/[0.04] hover:text-ink dark:hover:bg-white/5",
+                index === activeIndex && "bg-black/[0.04] text-ink dark:bg-white/5",
+                heading.level === 1 && "font-medium text-ink",
+                heading.level === 2 && "pl-3.5",
+                heading.level === 3 && "pl-5",
+                heading.level >= 4 && "pl-[26px]",
               )}
+              title={heading.text}
             >
-              {h.text}
+              {heading.text}
             </button>
           ))
         )}

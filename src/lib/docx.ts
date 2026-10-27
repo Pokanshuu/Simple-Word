@@ -19,6 +19,7 @@ import {
   type ParagraphChild,
 } from "docx";
 import { htmlToContent } from "./htmlToContent";
+import { hydrateImageSizes, optimizeEmbeddedImages } from "./image";
 import type { PageSettings } from "./types";
 
 const HEADING_LEVELS: Record<number, (typeof HeadingLevel)[keyof typeof HeadingLevel]> = {
@@ -42,10 +43,28 @@ const PAGE_SIZES: Record<string, { width: number; height: number }> = {
   Letter: { width: 12240, height: 15840 },
 };
 
-export async function importDocx(bytes: ArrayBuffer): Promise<JSONContent> {
+export interface DocxImportResult {
+  content: JSONContent;
+  /** mammoth 的降级/丢失警告（例如图片无法读取），导入后用于提示 */
+  warnings: string[];
+}
+
+export async function importDocx(bytes: ArrayBuffer): Promise<DocxImportResult> {
   const mammoth = (await import("mammoth/mammoth.browser.js")).default;
   const result = await mammoth.convertToHtml({ arrayBuffer: bytes });
-  return htmlToContent(result.value);
+  const content = htmlToContent(result.value);
+  // mammoth 默认把 Word 图片转成 data URL；先压缩/统一格式，再补宽高，
+  // 避免把 8MB 的原图直接写进 .sowd。
+  const optimized = await optimizeEmbeddedImages(content);
+  const sized = await hydrateImageSizes(optimized);
+  const messages = (result.messages ?? []) as Array<{ message?: string }>;
+  return {
+    content: sized,
+    warnings: messages
+      .map((m) => String(m?.message ?? ""))
+      .filter(Boolean)
+      .slice(0, 3),
+  };
 }
 
 /* ================= 导出 ================= */
@@ -60,8 +79,29 @@ interface MarkAcc {
   code?: boolean;
 }
 
-function hexNoHash(color: string): string {
-  return color.replace("#", "");
+function hexNoHash(color: string): string | undefined {
+  const hex = /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.exec(color.trim());
+  if (hex) {
+    const raw = hex[1];
+    if (raw.length === 3) {
+      return raw
+        .split("")
+        .map((ch) => `${ch}${ch}`)
+        .join("")
+        .toUpperCase();
+    }
+    return raw.toUpperCase();
+  }
+  // docx 只接受 RRGGBB；把 docx 导入常见的 rgb()/rgba() 转过去
+  const rgb = /^rgba?\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})/i.exec(color.trim());
+  if (rgb) {
+    return rgb
+      .slice(1, 4)
+      .map((part) => Math.min(255, Number(part)).toString(16).padStart(2, "0"))
+      .join("")
+      .toUpperCase();
+  }
+  return undefined;
 }
 
 function parseDataUrl(src: string): { mime: string; bytes: Uint8Array } | null {
@@ -121,7 +161,10 @@ function runProps(m: MarkAcc): Record<string, unknown> {
   if (m.italic) props.italics = true;
   if (m.underline) props.underline = {};
   if (m.strike) props.strike = true;
-  if (m.color) props.color = hexNoHash(m.color);
+  if (m.color) {
+    const color = hexNoHash(m.color);
+    if (color) props.color = color;
+  }
   if (m.code) props.font = { name: "Consolas" };
   return props;
 }
@@ -156,9 +199,18 @@ function inlineRuns(children: JSONContent[] | undefined, parent: MarkAcc): Parag
     }
     if (child.type === "image" && child.attrs?.src) {
       const parsed = parseDataUrl(String(child.attrs.src));
-      if (parsed) {
-        const w = Number(child.attrs.width) || 300;
-        const h = Number(child.attrs.height) || 200;
+      // docx 的 ImageRun 只稳定支持 png/jpeg/gif/bmp。SVG/WebP 的 fallback
+      // 需要另做栅格化，宁可不导出也不要把坏字节写进 .docx。
+      if (parsed && /^image\/(?:png|jpe?g|gif|bmp)$/i.test(parsed.mime)) {
+        const rawW = Number(child.attrs.width) || 300;
+        const rawH = Number(child.attrs.height) || 200;
+        // 页面上 CSS max-width 会把大图缩到正文宽，但 docx 的 ImageRun 不会：
+        // 1600px 的截图直接导出会撑出 A4 页面。这里按 600px（A4 默认边距下
+        // 的正文宽度，约 6.25in）等比缩放一次。
+        const maxW = 600;
+        const fit = rawW > maxW ? maxW / rawW : 1;
+        const w = Math.max(1, Math.round(rawW * fit));
+        const h = Math.max(1, Math.round(rawH * fit));
         const type = imageType(parsed.mime);
         const options: Record<string, unknown> = {
           type,
@@ -241,7 +293,7 @@ function blockToDocx(node: JSONContent): (Paragraph | Table)[] {
         out.push(
           new Paragraph({
             numbering: { reference: "sw-bullets", level: 0 },
-            children: [new TextRun({ text: "☐ " }), ...runs],
+            children: [new TextRun({ text: item.attrs?.checked ? "☑ " : "☐ " }), ...runs],
           }),
         );
       });

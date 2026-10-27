@@ -1,48 +1,47 @@
 import type { Editor } from "@tiptap/react";
 import {
   ArrowLeft,
-  CheckCircle,
   Download,
+  FileDown,
   Image as ImageIcon,
   Moon,
   MoreHorizontal,
   PanelRight,
   Printer,
+  Save,
+  Search,
   Settings,
   Sun,
   Table as TableIcon,
-  AlertTriangle,
-  LoaderCircle,
 } from "lucide-react";
 import { Dropdown, DropdownItem, DropdownSeparator } from "../ui/dropdown";
-import { ToolButton, ToolDivider, useEditorTick } from "./toolbar";
+import { ToolButton, ToolDivider } from "./toolbar";
 import { FormatToolbar } from "./formatToolbar";
 import type { DocRef } from "../../lib/types";
+import { cn } from "../../lib/cn";
 
-export type SaveStatus = "saved" | "saving" | "dirty" | "unsaved";
+export type SaveStatus = "saved" | "saving" | "dirty" | "unsaved" | "error";
 
-function SaveIndicator({ status }: { status: SaveStatus }) {
-  if (status === "saving") {
-    return (
-      <span className="flex items-center gap-1 text-xs text-ink-muted">
-        <LoaderCircle size={13} strokeWidth={2} className="animate-spin" />
-        保存中…
-      </span>
-    );
-  }
-  if (status === "dirty") {
-    return (
-      <span className="flex items-center gap-1 text-xs text-warning">
-        <AlertTriangle size={13} strokeWidth={2} />
-        未保存
-      </span>
-    );
-  }
+const SAVE_META: Record<SaveStatus, { text: string; dot: string; title: string }> = {
+  saved: { text: "已保存", dot: "bg-ink-faint", title: "已保存到文件" },
+  saving: { text: "保存中", dot: "bg-ink-faint animate-pulse", title: "正在保存" },
+  dirty: { text: "未保存", dot: "bg-warning", title: "有未保存的修改" },
+  unsaved: { text: "未保存到文件", dot: "bg-ink-faint", title: "尚未保存为 .sowd 文件" },
+  error: { text: "保存失败", dot: "bg-error", title: "保存失败，请检查文件权限" },
+};
+
+function SaveIndicator({ status, onSave }: { status: SaveStatus; onSave: () => void }) {
+  const meta = SAVE_META[status];
   return (
-    <span className="flex items-center gap-1 text-xs text-ink-muted">
-      <CheckCircle size={13} strokeWidth={2} />
-      已保存
-    </span>
+    <button
+      type="button"
+      onClick={onSave}
+      title={`${meta.title} · 点击保存（Ctrl+S）`}
+      className="flex items-center gap-1.5 rounded-[3px] px-1 py-0.5 text-[11px] text-ink-muted hover:text-ink"
+    >
+      <span className={cn("h-1.5 w-1.5 shrink-0 rounded-full", meta.dot)} />
+      <span className="truncate">{meta.text}</span>
+    </button>
   );
 }
 
@@ -52,40 +51,59 @@ export function EditorTopbar({
   setTitle,
   ref,
   saveStatus,
+  savedAt,
   palette,
   dark,
+  outlineOpen,
   onToggleTheme,
   onGoHome,
   onSaveNow,
+  onSaveAs,
   onExportDocx,
   onPrint,
   onInsertImage,
+  onInsertTable,
+  onOpenFind,
   onOpenOutline,
   onOpenPageSettings,
+  onWarn,
 }: {
   editor: Editor | null;
   title: string;
   setTitle: (t: string) => void;
   ref: DocRef | null;
   saveStatus: SaveStatus;
+  savedAt: number | null;
   palette: string[];
   dark: boolean;
+  outlineOpen: boolean;
   onToggleTheme: () => void;
   onGoHome: () => void;
   onSaveNow: () => void;
+  onSaveAs: () => void;
   onExportDocx: () => void;
   onPrint: () => void;
   onInsertImage: () => void;
+  onInsertTable: (rows: number, cols: number) => void;
+  onOpenFind: () => void;
   onOpenOutline: () => void;
   onOpenPageSettings: () => void;
+  onWarn: (message: string) => void;
 }) {
-  useEditorTick(editor);
+  const fileHint =
+    ref?.kind === "tauri"
+      ? ref.path
+      : ref?.kind === "web"
+        ? "浏览器本地文件"
+        : savedAt
+          ? `上次保存 ${new Date(savedAt).toLocaleTimeString("zh-CN")}`
+          : "尚未保存到文件";
 
   return (
-    <header className="no-print sticky top-0 z-20 flex min-h-[60px] shrink-0 items-center gap-2 border-b border-line bg-paper/70 px-4 py-2 backdrop-blur-lg dark:bg-[#1C1B1A]/70">
-      {/* 左：返回 + 标题 + 保存状态 */}
-      <div className="flex min-w-0 shrink items-center gap-1">
-        <ToolButton icon={ArrowLeft} label="返回首页" onClick={onGoHome} />
+    <header className="no-print flex h-14 shrink-0 items-center gap-1 border-b border-line bg-paper px-2">
+      <ToolButton icon={ArrowLeft} label="返回首页" onClick={onGoHome} />
+
+      <div className="flex min-w-0 max-w-[248px] shrink items-center gap-1 border-l border-line pl-1">
         <div className="flex min-w-0 flex-col">
           <input
             value={title}
@@ -94,94 +112,80 @@ export function EditorTopbar({
               if (e.key === "Enter") e.currentTarget.blur();
             }}
             placeholder="未命名文档"
-            className="h-7 w-48 min-w-0 truncate rounded border border-transparent bg-transparent px-1.5 text-sm font-medium text-ink hover:border-line focus:border-line-hover focus:bg-paper-card focus:outline-none"
+            aria-label="文档标题"
+            title={fileHint}
+            className="h-6 w-[150px] min-w-0 truncate rounded-[3px] border border-transparent bg-transparent px-1 text-[13px] font-medium text-ink hover:border-line focus:border-line-hover focus:bg-paper-alt focus:outline-none sm:w-[190px]"
           />
-          <div className="flex items-center gap-1.5 px-1.5">
-            <SaveIndicator status={saveStatus} />
-            {ref?.kind === "tauri" ? (
-              <span className="max-w-[180px] truncate text-[11px] text-ink-faint" title={ref.path}>
-                {ref.path}
-              </span>
-            ) : ref?.kind === "web" ? (
-              <span className="text-[11px] text-ink-faint">本地文件</span>
-            ) : null}
+          <div className="flex items-center gap-1 px-1">
+            <SaveIndicator status={saveStatus} onSave={onSaveNow} />
           </div>
         </div>
       </div>
 
       <ToolDivider />
 
-      {/* 中：格式工具栏 */}
-      <div className="flex min-w-0 flex-1 items-center overflow-x-auto">
-        {editor ? <FormatToolbar editor={editor} palette={palette} /> : null}
+      <div className="flex min-w-0 flex-1 items-center px-1">
+        {editor ? (
+          <FormatToolbar
+            editor={editor}
+            palette={palette}
+            onWarn={onWarn}
+          />
+        ) : null}
       </div>
 
-      {/* 右：插入 + 导出 + 更多 */}
+      <ToolDivider />
+
       <div className="flex shrink-0 items-center gap-0.5">
-        <ToolDivider />
         <ToolButton icon={ImageIcon} label="插入图片" onClick={onInsertImage} />
-        {editor ? (
-          <Dropdown
-            trigger={
-              <span
-                onMouseDown={(e) => e.preventDefault()}
-                className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded text-ink-muted hover:bg-black/5 hover:text-ink dark:hover:bg-white/5"
-              >
-                <TableIcon size={15} strokeWidth={2} />
-              </span>
-            }
-          >
-            <DropdownItem
-              onClick={() => editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()}
-            >
-              插入 3×3 表格
-            </DropdownItem>
-            <DropdownItem
-              onClick={() => editor.chain().focus().insertTable({ rows: 4, cols: 4, withHeaderRow: true }).run()}
-            >
-              插入 4×4 表格
-            </DropdownItem>
-          </Dropdown>
-        ) : null}
-        <ToolDivider />
-        <button
-          type="button"
-          onClick={onExportDocx}
-          title="导出为 .docx"
-          className="inline-flex h-7 items-center gap-1 rounded px-2 text-xs text-ink-muted hover:bg-black/5 hover:text-ink dark:hover:bg-white/5"
-        >
-          <Download size={14} strokeWidth={2} />
-          导出
-        </button>
-        <ToolButton icon={Printer} label="打印 (Ctrl+P)" onClick={onPrint} />
         <Dropdown
           align="end"
           trigger={
-            <span
+            <button
+              type="button"
               onMouseDown={(e) => e.preventDefault()}
-              className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded text-ink-muted hover:bg-black/5 hover:text-ink dark:hover:bg-white/5"
+              className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-[3px] text-ink-muted hover:bg-black/5 hover:text-ink dark:hover:bg-white/5"
+              title="更多"
+              aria-label="更多菜单"
+              aria-haspopup="menu"
             >
-              <MoreHorizontal size={15} strokeWidth={2} />
-            </span>
+              <MoreHorizontal size={16} strokeWidth={2} />
+            </button>
           }
         >
-          <DropdownItem
-            icon={<Printer size={15} strokeWidth={2} />}
-            onClick={onSaveNow}
-          >
+          <DropdownItem icon={<Save size={15} strokeWidth={2} />} onClick={onSaveNow} shortcut="Ctrl+S">
             保存
           </DropdownItem>
           <DropdownItem
-            icon={<PanelRight size={15} strokeWidth={2} />}
-            onClick={onOpenOutline}
+            icon={<FileDown size={15} strokeWidth={2} />}
+            onClick={onSaveAs}
+            shortcut="Ctrl+Shift+S"
           >
-            显示大纲
+            另存为…
           </DropdownItem>
-          <DropdownItem
-            icon={<Settings size={15} strokeWidth={2} />}
-            onClick={onOpenPageSettings}
-          >
+          <DropdownSeparator />
+          <DropdownItem icon={<TableIcon size={15} strokeWidth={2} />} onClick={() => onInsertTable(3, 3)}>
+            插入表格 3×3
+          </DropdownItem>
+          <DropdownItem icon={<TableIcon size={15} strokeWidth={2} />} onClick={() => onInsertTable(4, 4)}>
+            插入表格 4×4
+          </DropdownItem>
+          <DropdownSeparator />
+          <DropdownItem icon={<Search size={15} strokeWidth={2} />} onClick={onOpenFind} shortcut="Ctrl+F">
+            查找替换
+          </DropdownItem>
+          <DropdownItem icon={<PanelRight size={15} strokeWidth={2} />} onClick={onOpenOutline}>
+            {outlineOpen ? "隐藏大纲" : "显示大纲"}
+          </DropdownItem>
+          <DropdownItem icon={<Settings size={15} strokeWidth={2} />} onClick={onOpenPageSettings}>
             页面设置
+          </DropdownItem>
+          <DropdownSeparator />
+          <DropdownItem icon={<Download size={15} strokeWidth={2} />} onClick={onExportDocx}>
+            导出 Word (.docx)
+          </DropdownItem>
+          <DropdownItem icon={<Printer size={15} strokeWidth={2} />} onClick={onPrint} shortcut="Ctrl+P">
+            打印 / PDF
           </DropdownItem>
           <DropdownSeparator />
           <DropdownItem

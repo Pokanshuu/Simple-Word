@@ -5,6 +5,28 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Simple Word</title>
+    <script>
+      // 首帧前应用主题，避免暗色模式刷新时闪一下白屏
+      try {
+        const saved = localStorage.getItem("sw-theme");
+        const dark =
+          saved === "dark" ||
+          (!saved && window.matchMedia("(prefers-color-scheme: dark)").matches);
+        if (dark) document.documentElement.classList.add("dark");
+      } catch {
+        /* localStorage 不可用：交给 React 的 useTheme 处理 */
+      }
+    </script>
+    <style>
+      html,
+      body {
+        background: #fbfaf7;
+      }
+      html.dark,
+      html.dark body {
+        background: #1b1a18;
+      }
+    </style>
   </head>
 
   <body>

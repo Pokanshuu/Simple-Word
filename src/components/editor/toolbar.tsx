@@ -37,14 +37,15 @@ export function ToolButton({
       type="button"
       title={label}
       aria-label={label}
+      aria-pressed={active === undefined ? undefined : active}
       disabled={disabled}
       onMouseDown={(e) => e.preventDefault()}
       onClick={() => onClick?.()}
       className={cn(
-        "inline-flex shrink-0 items-center justify-center rounded text-ink-muted transition-colors hover:bg-black/5 hover:text-ink dark:hover:bg-white/5 dark:hover:text-[#E3DFD8]",
+        "inline-flex shrink-0 items-center justify-center rounded-[3px] text-ink-muted transition-colors hover:bg-black/5 hover:text-ink dark:hover:bg-white/5 dark:hover:text-[#E3DFD8]",
         size === "sm" ? "h-7 w-7" : "h-8 w-8",
         active && "bg-black/5 text-ink dark:bg-white/10 dark:text-[#E3DFD8]",
-        disabled && "pointer-events-none opacity-40",
+        disabled && "pointer-events-none opacity-30",
       )}
     >
       <Icon size={size === "sm" ? 15 : 16} strokeWidth={2} />

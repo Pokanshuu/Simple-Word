@@ -14,7 +14,7 @@ export function Badge({ children, className }: { children: ReactNode; className?
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1 rounded-full border border-line bg-paper-alt px-2 py-0.5 text-xs text-ink-muted",
+        "inline-flex items-center gap-1 rounded-[3px] border border-line px-1.5 py-0.5 text-[10px] tracking-wide text-ink-faint",
         className,
       )}
     >
@@ -25,7 +25,7 @@ export function Badge({ children, className }: { children: ReactNode; className?
 
 export function Kbd({ children }: { children: ReactNode }) {
   return (
-    <kbd className="inline-flex h-5 min-w-5 items-center justify-center rounded border border-line bg-paper-card px-1 font-sans text-[11px] text-ink-muted">
+    <kbd className="inline-flex h-5 min-w-5 items-center justify-center rounded-[3px] border border-line bg-paper-alt px-1 font-sans text-[10px] text-ink-muted">
       {children}
     </kbd>
   );
